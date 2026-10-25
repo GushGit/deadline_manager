@@ -56,3 +56,29 @@ def test_list_keyboards_callback_data_fit_telegram_limit():
         for row in markup.inline_keyboard:
             for button in row:
                 assert len(button.callback_data.encode("utf-8")) <= 64
+
+
+
+def test_reminder_keyboard_buttons():
+    markup = keyboards.reminder_keyboard(42)
+    assert len(markup.inline_keyboard) == 1
+    row = markup.inline_keyboard[0]
+    assert [b.text for b in row] == ["✅ Выполнено", "⏳ +1 час", "📅 +1 день"]
+    assert [b.callback_data for b in row] == ["done:42", "snooze_h:42", "snooze_d:42"]
+
+
+def test_expired_keyboard_button():
+    markup = keyboards.expired_keyboard(42)
+    assert len(markup.inline_keyboard) == 1
+    row = markup.inline_keyboard[0]
+    assert [b.text for b in row] == ["✅ Всё-таки выполнено"]
+    assert [b.callback_data for b in row] == ["done:42"]
+
+
+def test_reminder_keyboards_callback_data_fit_telegram_limit():
+    for markup in (
+        keyboards.reminder_keyboard(1_000_000_000_000),
+        keyboards.expired_keyboard(1_000_000_000_000),
+    ):
+        for button in markup.inline_keyboard[0]:
+            assert len(button.callback_data.encode("utf-8")) <= 64

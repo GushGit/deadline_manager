@@ -75,3 +75,30 @@ def test_task_list_extra_line_only_when_needed():
 def test_delete_confirm_escapes_title():
     assert texts.delete_confirm("Лаба") == "Удалить «Лаба»?"
     assert texts.delete_confirm("<b>&") == "Удалить «&lt;b&gt;&amp;»?"
+
+
+
+def test_reminder_format():
+    text = texts.reminder("Сдать лабу", "28.10 в 23:59", "через 1 ч.", False)
+    assert text.split("\n") == [
+        "⏰ Напоминание!",
+        "Задача: Сдать лабу",
+        "Дедлайн: 28.10 в 23:59 (через 1 ч.)",
+    ]
+
+
+def test_reminder_late_adds_warning_line():
+    text = texts.reminder("Лаба", "d", "l", True)
+    assert text.split("\n")[-1] == "⚠️ (бот был недоступен, напоминание опоздало)"
+    assert "опоздало" not in texts.reminder("Лаба", "d", "l", False)
+
+
+def test_reminder_escapes_title():
+    text = texts.reminder("<b>x</b> & y", "d", "l", False)
+    assert "Задача: &lt;b&gt;x&lt;/b&gt; &amp; y" in text
+    assert "<b>" not in text
+
+
+def test_task_expired_text_and_escaping():
+    assert texts.task_expired("Лаба") == "Дедлайн по задаче «Лаба» прошёл"
+    assert texts.task_expired("<i>&") == "Дедлайн по задаче «&lt;i&gt;&amp;» прошёл"

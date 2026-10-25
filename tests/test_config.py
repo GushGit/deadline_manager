@@ -33,6 +33,7 @@ def test_constants_match_spec():
     assert config.MAX_DEADLINE_DAYS == 730
     assert config.LATE_REMINDER_MINUTES == 5
     assert config.LIST_PAGE_SIZE == 10
+    assert config.SEND_PAUSE_SECONDS == 0.05
     assert config.DEFAULT_TIMEZONE == "Europe/Moscow"
 
 

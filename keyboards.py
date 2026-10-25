@@ -46,3 +46,26 @@ def delete_confirm_keyboard(task_id: int) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+
+def reminder_keyboard(task_id: int) -> InlineKeyboardMarkup:
+    """Кнопки под напоминанием: выполнено, +1 час, +1 день."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{task_id}"),
+                InlineKeyboardButton(text="⏳ +1 час", callback_data=f"snooze_h:{task_id}"),
+                InlineKeyboardButton(text="📅 +1 день", callback_data=f"snooze_d:{task_id}"),
+            ]
+        ]
+    )
+
+
+def expired_keyboard(task_id: int) -> InlineKeyboardMarkup:
+    """Кнопка под уведомлением о просрочке."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Всё-таки выполнено", callback_data=f"done:{task_id}")]
+        ]
+    )

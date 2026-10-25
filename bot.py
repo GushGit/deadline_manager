@@ -81,6 +81,7 @@ async def main() -> None:  # pragma: no cover (нужен реальный Teleg
     sched = setup_scheduler(bot)
     try:
         await bot.delete_webhook()
+        await expire_overdue_tasks(bot)
         sched.start()
         logger.info("Бот запущен")
         await dp.start_polling(bot)

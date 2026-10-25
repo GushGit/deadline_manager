@@ -103,3 +103,21 @@ def task_list(rows: list[tuple[str, str, str]], extra: int) -> str:
 def delete_confirm(title: str) -> str:
     """Вопрос перед удалением; название экранируется."""
     return f"Удалить «{html.escape(title)}»?"
+
+
+
+def reminder(title: str, deadline_text: str, left_text: str, late: bool) -> str:
+    """Текст напоминания; late добавляет пометку об опоздании."""
+    lines = [
+        "⏰ Напоминание!",
+        f"Задача: {html.escape(title)}",
+        f"Дедлайн: {deadline_text} ({left_text})",
+    ]
+    if late:
+        lines.append("⚠️ (бот был недоступен, напоминание опоздало)")
+    return "\n".join(lines)
+
+
+def task_expired(title: str) -> str:
+    """Уведомление о просроченной задаче."""
+    return f"Дедлайн по задаче «{html.escape(title)}» прошёл"
