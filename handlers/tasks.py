@@ -1,12 +1,13 @@
-"""Диалог /add (FSM) и команда /cancel."""
+"""Диалог /add (FSM), команды /cancel, /list и /delete."""
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 import config
 import database
@@ -39,12 +40,40 @@ def _reminder_plan(
     return kept, skipped
 
 
-async def _edit_text(callback: CallbackQuery, text: str) -> None:
+async def edit_text(
+    callback: CallbackQuery, text: str, reply_markup: InlineKeyboardMarkup | None = None
+) -> None:
     """Редактирует сообщение с кнопкой; устаревшее или то же самое глушит."""
+    kwargs = {} if reply_markup is None else {"reply_markup": reply_markup}
     try:
-        await callback.message.edit_text(text)
+        await callback.message.edit_text(text, **kwargs)
     except TelegramBadRequest:
         logger.info("Не удалось отредактировать сообщение")
+
+
+async def _answer_task_list(
+    message: Message,
+    make_keyboard: Callable[[list[dict]], InlineKeyboardMarkup],
+    header: str = "",
+) -> None:
+    """Отвечает списком ближайших активных задач с клавиатурой."""
+    user = await database.get_or_create_user(config.DB_PATH, message.from_user.id)
+    active = await database.get_active_tasks(config.DB_PATH, user["id"])
+    if not active:
+        await message.answer(texts.LIST_EMPTY)
+        return
+    page = active[: config.LIST_PAGE_SIZE]
+    now = _now_utc()
+    rows = [
+        (
+            task["title"],
+            utils.format_deadline(task["deadline"], user["timezone"], now),
+            utils.format_time_left(task["deadline"] - now),
+        )
+        for task in page
+    ]
+    body = texts.task_list(rows, len(active) - len(page))
+    await message.answer(header + body, reply_markup=make_keyboard(page))
 
 
 @router.message(Command("cancel"))
@@ -146,7 +175,7 @@ async def add_save(callback: CallbackQuery, state: FSMContext) -> None:
     active = await database.count_active_tasks(config.DB_PATH, user_id)
     if active >= config.MAX_ACTIVE_TASKS:
         await state.clear()
-        await _edit_text(
+        await edit_text(
             callback, texts.ADD_LIMIT_REACHED.format(limit=config.MAX_ACTIVE_TASKS)
         )
         await callback.answer()
@@ -156,7 +185,7 @@ async def add_save(callback: CallbackQuery, state: FSMContext) -> None:
     deadline = datetime.fromisoformat(data["deadline"])
     if deadline <= now:
         await state.clear()
-        await _edit_text(callback, texts.ADD_DEADLINE_PASSED)
+        await edit_text(callback, texts.ADD_DEADLINE_PASSED)
         await callback.answer()
         return
 
@@ -168,7 +197,7 @@ async def add_save(callback: CallbackQuery, state: FSMContext) -> None:
     )
     await state.clear()
     logger.info("Добавлена задача task_id=%s, user_id=%s", task_id, user_id)
-    await _edit_text(callback, texts.add_saved([utils.format_offset(m) for m in kept]))
+    await edit_text(callback, texts.add_saved([utils.format_offset(m) for m in kept]))
     await callback.answer()
 
 
@@ -179,5 +208,19 @@ async def add_cancel(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer(texts.BUTTON_OUTDATED, show_alert=True)
         return
     await state.clear()
-    await _edit_text(callback, texts.CANCELLED)
+    await edit_text(callback, texts.CANCELLED)
     await callback.answer()
+
+
+@router.message(Command("list"))
+async def cmd_list(message: Message) -> None:
+    """Показывает активные дедлайны с кнопками «выполнено» и «удалить»."""
+    await _answer_task_list(message, keyboards.tasks_keyboard)
+
+
+@router.message(Command("delete"))
+async def cmd_delete(message: Message) -> None:
+    """Показывает активные дедлайны с кнопками удаления."""
+    await _answer_task_list(
+        message, keyboards.delete_keyboard, header=texts.DELETE_PROMPT + "\n\n"
+    )

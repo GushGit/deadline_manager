@@ -77,3 +77,29 @@ def add_saved(kept: list[str]) -> str:
     if kept:
         return "Сохранено ✅ Напомню " + ", ".join(kept)
     return "Сохранено ✅ Напоминаний не будет: дедлайн слишком близко"
+
+
+LIST_EMPTY = "Активных дедлайнов нет. Добавь первый через /add"
+LIST_MORE = "…и ещё {count}. Заверши или удали часть задач"
+DELETE_PROMPT = "Какую задачу удалить? Нажми на её номер."
+DELETE_DONE = "Удалено 🗑"
+DELETE_KEPT = "Хорошо, задача осталась в списке"
+TASK_NOT_FOUND = "Задача не найдена"
+BAD_BUTTON = "Некорректная кнопка"
+
+
+def task_list(rows: list[tuple[str, str, str]], extra: int) -> str:
+    """Нумерованный список; rows это (название, дедлайн, сколько осталось)."""
+    parts = [
+        f"{number}. <b>{html.escape(title)}</b>\n    {deadline_text} ({left_text})"
+        for number, (title, deadline_text, left_text) in enumerate(rows, start=1)
+    ]
+    text = "\n\n".join(parts)
+    if extra > 0:
+        text += "\n\n" + LIST_MORE.format(count=extra)
+    return text
+
+
+def delete_confirm(title: str) -> str:
+    """Вопрос перед удалением; название экранируется."""
+    return f"Удалить «{html.escape(title)}»?"

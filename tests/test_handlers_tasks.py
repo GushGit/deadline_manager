@@ -16,10 +16,11 @@ from states import AddTask
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
 DEADLINE_ISO = "2026-10-28T20:59:00+00:00"
 
-
 def sql(path, query, params=()):
     with closing(sqlite3.connect(path)) as conn:
-        return conn.execute(query, params).fetchall()
+        rows = conn.execute(query, params).fetchall()
+        conn.commit()
+    return rows
 
 
 @pytest.fixture
@@ -78,17 +79,22 @@ def test_reminder_plan_all_skipped():
 
 
 async def test_edit_text_edits_message(fake_callback):
-    await tasks._edit_text(fake_callback, "текст")
+    await tasks.edit_text(fake_callback, "текст")
     fake_callback.message.edit_text.assert_awaited_once_with("текст")
+
+
+async def test_edit_text_passes_reply_markup(fake_callback):
+    markup = keyboards.confirm_keyboard()
+    await tasks.edit_text(fake_callback, "текст", reply_markup=markup)
+    fake_callback.message.edit_text.assert_awaited_once_with("текст", reply_markup=markup)
 
 
 async def test_edit_text_swallows_bad_request(fake_callback):
     fake_callback.message.edit_text.side_effect = TelegramBadRequest(
         method=MagicMock(), message="message is not modified"
     )
-    await tasks._edit_text(fake_callback, "текст")
+    await tasks.edit_text(fake_callback, "текст")
     fake_callback.message.edit_text.assert_awaited_once()
-
 
 # ---------- /cancel и команды в диалоге ----------
 
@@ -402,3 +408,111 @@ async def test_full_add_flow(env, fake_message, fake_callback, fsm):
     assert await fsm.get_state() is None
     due = await database.get_due_reminders(env, datetime(2026, 10, 28, 20, 0, tzinfo=timezone.utc))
     assert len(due) == 2
+
+
+# ---------- /list и /delete ----------
+
+async def add_tasks(path, user_id, titles, start_hours=24):
+    await database.get_or_create_user(path, user_id)
+    ids = []
+    for i, title in enumerate(titles):
+        deadline = NOW + timedelta(hours=start_hours + i)
+        ids.append(await database.add_task(path, user_id, title, deadline, []))
+    return ids
+
+
+async def test_list_empty(env, fake_message):
+    await tasks.cmd_list(fake_message)
+    fake_message.answer.assert_awaited_once_with(texts.LIST_EMPTY)
+    assert sql(env, "SELECT id FROM users") == [(1,)]
+
+
+async def test_list_shows_tasks_with_keyboard(env, fake_message):
+    await add_tasks(env, 1, ["Лаба", "Курсовая"], start_hours=30)
+    await tasks.cmd_list(fake_message)
+
+    expected = texts.task_list(
+        [
+            ("Лаба", "24.10 в 21:00", "через 1 дн. 6 ч."),
+            ("Курсовая", "24.10 в 22:00", "через 1 дн. 7 ч."),
+        ],
+        0,
+    )
+    assert answered(fake_message) == expected
+    saved = await database.get_active_tasks(env, 1)
+    markup = fake_message.answer.await_args.kwargs["reply_markup"]
+    assert markup == keyboards.tasks_keyboard(saved)
+
+
+async def test_list_shows_only_own_active_tasks(env, fake_message):
+    mine = await add_tasks(env, 1, ["моя", "сделанная", "просроченная"])
+    await add_tasks(env, 2, ["чужая"])
+    await database.mark_task_done(env, mine[1], 1, NOW)
+    sql(env, "UPDATE tasks SET status = 'expired' WHERE id = ?", (mine[2],))
+    await tasks.cmd_list(fake_message)
+    text = answered(fake_message)
+    assert "моя" in text
+    assert "чужая" not in text and "сделанная" not in text and "просроченная" not in text
+
+
+async def test_list_more_than_page_size(env, fake_message):
+    titles = [f"t{i:02d}" for i in range(12)]
+    await add_tasks(env, 1, titles)
+    await tasks.cmd_list(fake_message)
+    text = answered(fake_message)
+    assert "t09" in text and "t10" not in text
+    assert text.endswith(texts.LIST_MORE.format(count=2))
+    markup = fake_message.answer.await_args.kwargs["reply_markup"]
+    assert len(markup.inline_keyboard) == config.LIST_PAGE_SIZE
+
+
+async def test_list_exactly_page_size_has_no_more_line(env, fake_message):
+    await add_tasks(env, 1, [f"t{i}" for i in range(config.LIST_PAGE_SIZE)])
+    await tasks.cmd_list(fake_message)
+    assert "…и ещё" not in answered(fake_message)
+
+
+async def test_list_escapes_title(env, fake_message):
+    await add_tasks(env, 1, ["<b>x</b> & y"])
+    await tasks.cmd_list(fake_message)
+    text = answered(fake_message)
+    assert "&lt;b&gt;x&lt;/b&gt; &amp; y" in text
+    assert "<b>x</b>" not in text
+
+
+async def test_list_uses_user_timezone(env, fake_message):
+    await add_tasks(env, 1, ["Лаба"], start_hours=30)
+    await database.update_user_timezone(env, 1, "Asia/Novosibirsk")
+    await tasks.cmd_list(fake_message)
+    assert "25.10 в 01:00" in answered(fake_message)
+
+
+async def test_list_buttons_numbers_match_list(env, fake_message):
+    ids = await add_tasks(env, 1, ["a", "b", "c"])
+    await tasks.cmd_list(fake_message)
+    rows = fake_message.answer.await_args.kwargs["reply_markup"].inline_keyboard
+    assert [row[1].text for row in rows] == ["🗑 №1", "🗑 №2", "🗑 №3"]
+    assert [row[1].callback_data for row in rows] == [f"del:{i}" for i in ids]
+
+
+async def test_delete_empty(env, fake_message):
+    await tasks.cmd_delete(fake_message)
+    fake_message.answer.assert_awaited_once_with(texts.LIST_EMPTY)
+
+
+async def test_delete_shows_list_with_delete_buttons_only(env, fake_message):
+    ids = await add_tasks(env, 1, ["Лаба", "Курсовая"])
+    await tasks.cmd_delete(fake_message)
+    text = answered(fake_message)
+    assert text.startswith(texts.DELETE_PROMPT)
+    assert "1. <b>Лаба</b>" in text and "2. <b>Курсовая</b>" in text
+    rows = fake_message.answer.await_args.kwargs["reply_markup"].inline_keyboard
+    assert [[b.callback_data for b in row] for row in rows] == [[f"del:{i}"] for i in ids]
+
+
+async def test_delete_limits_to_page_size(env, fake_message):
+    await add_tasks(env, 1, [f"t{i:02d}" for i in range(12)])
+    await tasks.cmd_delete(fake_message)
+    assert answered(fake_message).endswith(texts.LIST_MORE.format(count=2))
+    rows = fake_message.answer.await_args.kwargs["reply_markup"].inline_keyboard
+    assert len(rows) == config.LIST_PAGE_SIZE

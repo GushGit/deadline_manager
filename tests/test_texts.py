@@ -45,3 +45,33 @@ def test_templates_with_limit_placeholder_are_formattable():
         formatted = template.format(limit=100)
         assert "100" in formatted
         assert "{" not in formatted
+
+
+
+
+def test_task_list_format():
+    text = texts.task_list(
+        [("Лаба", "28.10 в 23:59", "через 2 дн. 3 ч."), ("Курсовая", "29.10 в 10:00", "через 3 дн.")],
+        0,
+    )
+    assert text == (
+        "1. <b>Лаба</b>\n    28.10 в 23:59 (через 2 дн. 3 ч.)\n\n"
+        "2. <b>Курсовая</b>\n    29.10 в 10:00 (через 3 дн.)"
+    )
+
+
+def test_task_list_escapes_title():
+    text = texts.task_list([("<i>a</i> & b", "d", "l")], 0)
+    assert "&lt;i&gt;a&lt;/i&gt; &amp; b" in text
+    assert "<i>" not in text
+
+
+def test_task_list_extra_line_only_when_needed():
+    rows = [("a", "d", "l")]
+    assert "…и ещё" not in texts.task_list(rows, 0)
+    assert texts.task_list(rows, 3).endswith("…и ещё 3. Заверши или удали часть задач")
+
+
+def test_delete_confirm_escapes_title():
+    assert texts.delete_confirm("Лаба") == "Удалить «Лаба»?"
+    assert texts.delete_confirm("<b>&") == "Удалить «&lt;b&gt;&amp;»?"
