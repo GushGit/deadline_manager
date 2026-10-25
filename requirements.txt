@@ -1,0 +1,8 @@
+aiogram
+aiosqlite
+APScheduler<4
+python-dotenv
+tzdata
+pytest
+pytest-asyncio
+pytest-cov
