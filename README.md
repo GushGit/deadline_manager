@@ -22,3 +22,7 @@
 | `DB_PATH`, `LOG_PATH` | Берутся из `.env`, если заданы; иначе значения по умолчанию из ТЗ |
 | `requirements.txt` | `APScheduler<4`, чтобы не поставилась ветка 4.x |
 | Заглушка `scheduler.py` | Две пустые async-функции до этапа 6 |
+| Формат дат в БД | `isoformat(timespec="seconds")` от aware-UTC, доли секунды отбрасываются: единый формат гарантирует корректное сравнение строк |
+| `shift_task_deadline` | Работает только с задачами `active`; для `done` и `expired` возвращает `False` (хендлер ответит «Задача не найдена») |
+| `expire_overdue_tasks` | Возвращает словари с ключами `task_id`, `user_id`, `title`, `deadline` |
+| Поле `reminder_offsets` | `get_or_create_user` отдаёт его строкой `'1440,60'`; разбирает её `utils.parse_offsets` (этап 3) |

@@ -10,6 +10,7 @@ from aiogram.enums import ParseMode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
+import database
 from handlers import start
 from scheduler import check_reminders, expire_overdue_tasks
 
@@ -72,6 +73,7 @@ async def main() -> None:  # pragma: no cover (нужен реальный Teleg
     """Запускает бота в режиме long polling."""
     token = config.require_token()
     setup_logging()
+    await database.init_db(config.DB_PATH)
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = build_dispatcher()
     sched = setup_scheduler(bot)
