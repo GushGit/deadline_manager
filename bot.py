@@ -11,7 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 import database
-from handlers import start
+from handlers import start, tasks
 from scheduler import check_reminders, expire_overdue_tasks
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ def setup_logging() -> None:
 def build_dispatcher() -> Dispatcher:
     """Создаёт диспетчер и подключает роутеры (fallback будет последним)."""
     dp = Dispatcher()
+    dp.include_router(tasks.router)
     dp.include_router(start.router)
     return dp
 
