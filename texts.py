@@ -6,7 +6,8 @@ START = (
     "Привет! Я помогу не забыть про дедлайны.\n\n"
     "Добавь задачу через /add, и я напомню о ней заранее: "
     "по умолчанию за сутки и за час.\n"
-    "Все команды: /help"
+    "Все команды: /help\n\n"
+    "Сначала выбери свой часовой пояс, чтобы напоминания приходили вовремя:"
 )
 
 HELP = (
@@ -121,3 +122,23 @@ def reminder(title: str, deadline_text: str, left_text: str, late: bool) -> str:
 def task_expired(title: str) -> str:
     """Уведомление о просроченной задаче."""
     return f"Дедлайн по задаче «{html.escape(title)}» прошёл"
+
+
+
+ASK_TIMEZONE = "Напиши название часового пояса в формате Europe/Berlin или отправь /cancel"
+TIMEZONE_INVALID = (
+    "Не нашёл такой часовой пояс. Напиши в формате Europe/Berlin или отправь /cancel"
+)
+DONE_OK = "Молодец! Задача выполнена ✅"
+DONE_NOT_FOUND = "Задача не найдена или уже выполнена"
+SNOOZE_TOO_FAR = "Нельзя перенести дедлайн дальше чем на 2 года вперёд"
+
+
+def timezone_saved(tz_name: str) -> str:
+    """Сообщение после выбора часового пояса."""
+    return f"Часовой пояс: {html.escape(tz_name)}. Теперь добавь дедлайн через /add"
+
+
+def deadline_shifted(deadline_text: str) -> str:
+    """Сообщение после переноса дедлайна."""
+    return f"Дедлайн перенесён на {deadline_text}"

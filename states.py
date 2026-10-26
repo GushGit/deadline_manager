@@ -8,3 +8,10 @@ class AddTask(StatesGroup):
     waiting_title = State()
     waiting_deadline = State()
     waiting_confirm = State()
+
+
+
+class SetTimezone(StatesGroup):
+    """Ввод часового пояса текстом."""
+
+    waiting_timezone = State()

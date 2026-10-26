@@ -102,3 +102,19 @@ def test_reminder_escapes_title():
 def test_task_expired_text_and_escaping():
     assert texts.task_expired("Лаба") == "Дедлайн по задаче «Лаба» прошёл"
     assert texts.task_expired("<i>&") == "Дедлайн по задаче «&lt;i&gt;&amp;» прошёл"
+
+
+
+def test_timezone_saved_text_and_escaping():
+    assert texts.timezone_saved("Europe/Berlin") == (
+        "Часовой пояс: Europe/Berlin. Теперь добавь дедлайн через /add"
+    )
+    assert "&lt;b&gt;" in texts.timezone_saved("<b>")
+
+
+def test_deadline_shifted_text():
+    assert texts.deadline_shifted("28.10 в 23:59") == "Дедлайн перенесён на 28.10 в 23:59"
+
+
+def test_start_text_mentions_timezone_choice():
+    assert "часовой пояс" in texts.START

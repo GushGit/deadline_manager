@@ -82,3 +82,27 @@ def test_reminder_keyboards_callback_data_fit_telegram_limit():
     ):
         for button in markup.inline_keyboard[0]:
             assert len(button.callback_data.encode("utf-8")) <= 64
+
+def test_timezone_keyboard_contains_all_popular_zones_and_other():
+    import config
+
+    markup = keyboards.timezone_keyboard()
+    buttons = [button for row in markup.inline_keyboard for button in row]
+    zone_buttons = buttons[:-1]
+    assert [b.text for b in zone_buttons] == list(config.POPULAR_TIMEZONES)
+    assert [b.callback_data for b in zone_buttons] == [
+        f"tz:{iana}" for iana in config.POPULAR_TIMEZONES.values()
+    ]
+    assert (buttons[-1].text, buttons[-1].callback_data) == ("Другой", "tz_other")
+
+
+def test_timezone_keyboard_layout_two_per_row_other_last():
+    rows = keyboards.timezone_keyboard().inline_keyboard
+    assert [len(row) for row in rows] == [2, 2, 2, 2, 2, 1]
+    assert rows[-1][0].callback_data == "tz_other"
+
+
+def test_timezone_keyboard_callback_data_fit_telegram_limit():
+    for row in keyboards.timezone_keyboard().inline_keyboard:
+        for button in row:
+            assert len(button.callback_data.encode("utf-8")) <= 64

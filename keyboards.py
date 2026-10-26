@@ -1,6 +1,8 @@
 """Фабрики inline-клавиатур."""
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+import config
+
 
 def confirm_keyboard() -> InlineKeyboardMarkup:
     """Кнопки подтверждения в /add: сохранить или отменить."""
@@ -12,7 +14,6 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
             ]
         ]
     )
-
 
 
 def tasks_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
@@ -48,7 +49,6 @@ def delete_confirm_keyboard(task_id: int) -> InlineKeyboardMarkup:
     )
 
 
-
 def reminder_keyboard(task_id: int) -> InlineKeyboardMarkup:
     """Кнопки под напоминанием: выполнено, +1 час, +1 день."""
     return InlineKeyboardMarkup(
@@ -69,3 +69,14 @@ def expired_keyboard(task_id: int) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="✅ Всё-таки выполнено", callback_data=f"done:{task_id}")]
         ]
     )
+
+
+def timezone_keyboard() -> InlineKeyboardMarkup:
+    """Популярные часовые пояса по два в ряд и кнопка «Другой»."""
+    buttons = [
+        InlineKeyboardButton(text=label, callback_data=f"tz:{iana}")
+        for label, iana in config.POPULAR_TIMEZONES.items()
+    ]
+    rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton(text="Другой", callback_data="tz_other")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
