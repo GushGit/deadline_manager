@@ -106,3 +106,39 @@ def test_timezone_keyboard_callback_data_fit_telegram_limit():
     for row in keyboards.timezone_keyboard().inline_keyboard:
         for button in row:
             assert len(button.callback_data.encode("utf-8")) <= 64
+
+
+
+def test_settings_keyboard_two_buttons():
+    markup = keyboards.settings_keyboard()
+    buttons = [button for row in markup.inline_keyboard for button in row]
+    assert [b.text for b in buttons] == ["Часовой пояс", "Интервалы напоминаний"]
+    assert [b.callback_data for b in buttons] == ["settings_tz", "settings_off"]
+
+
+def test_offsets_keyboard_has_one_button_per_preset():
+    import config
+
+    markup = keyboards.offsets_keyboard(None)
+    assert [len(row) for row in markup.inline_keyboard] == [1] * len(config.OFFSET_PRESETS)
+    assert [row[0].callback_data for row in markup.inline_keyboard] == [
+        f"off:{key}" for key in config.OFFSET_PRESETS
+    ]
+    labels = [label for _minutes, label in config.OFFSET_PRESETS.values()]
+    assert [row[0].text for row in markup.inline_keyboard] == labels
+
+
+def test_offsets_keyboard_marks_only_current_preset():
+    import config
+
+    markup = keyboards.offsets_keyboard("h1")
+    for key, row in zip(config.OFFSET_PRESETS, markup.inline_keyboard):
+        assert row[0].text.startswith("✅ ") == (key == "h1")
+    assert all("✅" not in row[0].text for row in keyboards.offsets_keyboard(None).inline_keyboard)
+
+
+def test_settings_keyboards_callback_data_fit_telegram_limit():
+    for markup in (keyboards.settings_keyboard(), keyboards.offsets_keyboard("d1")):
+        for row in markup.inline_keyboard:
+            for button in row:
+                assert len(button.callback_data.encode("utf-8")) <= 64

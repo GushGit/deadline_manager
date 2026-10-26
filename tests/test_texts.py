@@ -118,3 +118,33 @@ def test_deadline_shifted_text():
 
 def test_start_text_mentions_timezone_choice():
     assert "часовой пояс" in texts.START
+
+
+
+def test_settings_menu_text_and_escaping():
+    text = texts.settings_menu("Europe/Moscow", "за 1 день, за 1 час")
+    assert text.split("\n") == [
+        "⚙️ Настройки",
+        "Часовой пояс: Europe/Moscow",
+        "Напоминания: за 1 день, за 1 час",
+    ]
+    assert "&lt;b&gt;" in texts.settings_menu("<b>", "x")
+
+
+def test_offsets_menu_mentions_current_and_new_tasks_only():
+    text = texts.offsets_menu("за 1 час")
+    assert "Сейчас: за 1 час" in text
+    assert "только новых задач" in text
+
+
+def test_offsets_saved_mentions_label_and_new_tasks_only():
+    text = texts.offsets_saved("только за 1 час")
+    assert "напомню только за 1 час" in text
+    assert "только новых задач" in text
+
+
+def test_simple_texts_are_not_empty():
+    for value in (texts.TODAY_HEADER, texts.WEEK_HEADER, texts.TODAY_EMPTY,
+                  texts.WEEK_EMPTY, texts.ERROR_GENERIC, texts.CHOOSE_TIMEZONE):
+        assert value.strip()
+    assert "/help" in texts.FALLBACK

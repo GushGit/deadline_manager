@@ -16,6 +16,7 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+
 def tasks_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
     """Для каждой задачи строка [✅ №N] [🗑 №N]; N это номер в списке."""
     rows = [
@@ -49,6 +50,7 @@ def delete_confirm_keyboard(task_id: int) -> InlineKeyboardMarkup:
     )
 
 
+
 def reminder_keyboard(task_id: int) -> InlineKeyboardMarkup:
     """Кнопки под напоминанием: выполнено, +1 час, +1 день."""
     return InlineKeyboardMarkup(
@@ -79,4 +81,29 @@ def timezone_keyboard() -> InlineKeyboardMarkup:
     ]
     rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
     rows.append([InlineKeyboardButton(text="Другой", callback_data="tz_other")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+
+def settings_keyboard() -> InlineKeyboardMarkup:
+    """Меню /settings: часовой пояс и интервалы напоминаний."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Часовой пояс", callback_data="settings_tz")],
+            [InlineKeyboardButton(text="Интервалы напоминаний", callback_data="settings_off")],
+        ]
+    )
+
+
+def offsets_keyboard(current_key: str | None) -> InlineKeyboardMarkup:
+    """Пресеты интервалов по кнопке в строке; текущий отмечен галочкой."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"✅ {label}" if key == current_key else label,
+                callback_data=f"off:{key}",
+            )
+        ]
+        for key, (_minutes, label) in config.OFFSET_PRESETS.items()
+    ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

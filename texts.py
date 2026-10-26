@@ -142,3 +142,39 @@ def timezone_saved(tz_name: str) -> str:
 def deadline_shifted(deadline_text: str) -> str:
     """Сообщение после переноса дедлайна."""
     return f"Дедлайн перенесён на {deadline_text}"
+
+
+
+TODAY_HEADER = "Дедлайны на сегодня:"
+WEEK_HEADER = "Дедлайны на ближайшие 7 дней:"
+TODAY_EMPTY = "На сегодня дедлайнов нет. Можно выдохнуть 🙂"
+WEEK_EMPTY = "На ближайшие 7 дней дедлайнов нет"
+ERROR_GENERIC = "Что-то пошло не так, попробуй ещё раз"
+FALLBACK = "Не понял. Список команд: /help"
+CHOOSE_TIMEZONE = "Выбери часовой пояс:"
+
+
+def settings_menu(tz_name: str, offsets_text: str) -> str:
+    """Главное сообщение /settings с текущими значениями."""
+    return (
+        "⚙️ Настройки\n"
+        f"Часовой пояс: {html.escape(tz_name)}\n"
+        f"Напоминания: {offsets_text}"
+    )
+
+
+def offsets_menu(offsets_text: str) -> str:
+    """Сообщение с выбором интервалов напоминаний."""
+    return (
+        "Когда напоминать?\n"
+        f"Сейчас: {offsets_text}\n"
+        "Изменение касается только новых задач, уже добавленные не меняются."
+    )
+
+
+def offsets_saved(label: str) -> str:
+    """Сообщение после выбора пресета интервалов."""
+    return (
+        f"Готово: напомню {label}.\n"
+        "Это касается только новых задач, уже добавленные не меняются."
+    )

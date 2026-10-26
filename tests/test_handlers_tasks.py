@@ -516,3 +516,95 @@ async def test_delete_limits_to_page_size(env, fake_message):
     assert answered(fake_message).endswith(texts.LIST_MORE.format(count=2))
     rows = fake_message.answer.await_args.kwargs["reply_markup"].inline_keyboard
     assert len(rows) == config.LIST_PAGE_SIZE
+
+
+
+# ---------- /today и /week ----------
+
+def at(*args):
+    return datetime(*args, tzinfo=timezone.utc)
+
+
+async def add_at(path, user_id, title, deadline):
+    await database.get_or_create_user(path, user_id)
+    return await database.add_task(path, user_id, title, deadline, [])
+
+
+def button_ids(message):
+    rows = message.answer.await_args.kwargs["reply_markup"].inline_keyboard
+    return [row[0].callback_data for row in rows]
+
+
+async def test_today_shows_only_tasks_of_local_day(env, fake_message):
+    morning = await add_at(env, 1, "Утро", at(2026, 10, 22, 21, 0))
+    evening = await add_at(env, 1, "Вечер", at(2026, 10, 23, 20, 59))
+    await add_at(env, 1, "Завтра", at(2026, 10, 23, 21, 0))
+    await add_at(env, 1, "Вчера", at(2026, 10, 22, 20, 59))
+    await add_at(env, 2, "чужая", at(2026, 10, 23, 18, 0))
+    done = await add_at(env, 1, "сделана", at(2026, 10, 23, 18, 0))
+    await database.mark_task_done(env, done, 1, NOW)
+
+    await tasks.cmd_today(fake_message)
+
+    text = answered(fake_message)
+    assert text.startswith(texts.TODAY_HEADER)
+    assert "1. <b>Утро</b>" in text and "2. <b>Вечер</b>" in text
+    assert "просрочено" in text
+    for absent in ("Завтра", "Вчера", "чужая", "сделана"):
+        assert absent not in text
+    assert button_ids(fake_message) == [f"done:{morning}", f"done:{evening}"]
+
+
+async def test_today_empty(env, fake_message):
+    await add_at(env, 1, "Завтра", at(2026, 10, 24, 10, 0))
+    await tasks.cmd_today(fake_message)
+    fake_message.answer.assert_awaited_once_with(texts.TODAY_EMPTY)
+
+
+async def test_today_uses_user_timezone(env, fake_message):
+    await add_at(env, 1, "ещё сегодня", at(2026, 10, 23, 16, 59))
+    await add_at(env, 1, "уже завтра", at(2026, 10, 23, 20, 0))
+    await database.update_user_timezone(env, 1, "Asia/Novosibirsk")
+    await tasks.cmd_today(fake_message)
+    text = answered(fake_message)
+    assert "ещё сегодня" in text and "уже завтра" not in text
+
+
+async def test_week_covers_seven_local_days_half_open(env, fake_message):
+    await add_at(env, 1, "первый", at(2026, 10, 22, 21, 0))
+    await add_at(env, 1, "последний", at(2026, 10, 29, 20, 59))
+    await add_at(env, 1, "за границей", at(2026, 10, 29, 21, 0))
+    await add_at(env, 1, "до недели", at(2026, 10, 22, 20, 59))
+    await tasks.cmd_week(fake_message)
+    text = answered(fake_message)
+    assert text.startswith(texts.WEEK_HEADER)
+    assert "первый" in text and "последний" in text
+    assert "за границей" not in text and "до недели" not in text
+
+
+async def test_week_empty(env, fake_message):
+    await add_at(env, 1, "через месяц", at(2026, 11, 25, 10, 0))
+    await tasks.cmd_week(fake_message)
+    fake_message.answer.assert_awaited_once_with(texts.WEEK_EMPTY)
+
+
+async def test_week_more_than_page_size(env, fake_message):
+    for i in range(12):
+        await add_at(env, 1, f"t{i:02d}", at(2026, 10, 24, 6, 0) + timedelta(hours=i))
+    await tasks.cmd_week(fake_message)
+    text = answered(fake_message)
+    assert text.endswith(texts.LIST_MORE.format(count=2))
+    assert len(button_ids(fake_message)) == config.LIST_PAGE_SIZE
+
+
+async def test_week_escapes_title(env, fake_message):
+    await add_at(env, 1, "<b>x</b>", at(2026, 10, 25, 10, 0))
+    await tasks.cmd_week(fake_message)
+    text = answered(fake_message)
+    assert "&lt;b&gt;x&lt;/b&gt;" in text and "<b>x</b>" not in text
+
+
+async def test_today_and_week_create_user(env, fake_message):
+    await tasks.cmd_today(fake_message)
+    await tasks.cmd_week(fake_message)
+    assert sql(env, "SELECT id FROM users") == [(1,)]

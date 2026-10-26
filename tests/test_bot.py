@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import bot
 import config
-from handlers import callbacks, start, tasks
+from handlers import callbacks, errors, fallback, settings, start, tasks
 from scheduler import check_reminders, expire_overdue_tasks
 
 LIB_LOGGERS = ("aiogram", "aiohttp")
@@ -72,7 +72,15 @@ def test_setup_logging_does_not_leak_token(tmp_path, monkeypatch, restore_loggin
 def test_build_dispatcher_includes_routers():
     dp = bot.build_dispatcher()
     assert isinstance(dp, Dispatcher)
-    assert dp.sub_routers == [tasks.router, callbacks.router, start.router]
+    assert dp.sub_routers == [
+        tasks.router,
+        callbacks.router,
+        settings.router,
+        start.router,
+        errors.router,
+        fallback.router,
+    ]
+    assert dp.sub_routers[-1] is fallback.router
 
 
 async def test_setup_scheduler_creates_two_jobs(fake_bot):

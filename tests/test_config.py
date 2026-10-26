@@ -34,6 +34,7 @@ def test_constants_match_spec():
     assert config.LATE_REMINDER_MINUTES == 5
     assert config.LIST_PAGE_SIZE == 10
     assert config.SEND_PAUSE_SECONDS == 0.05
+    assert config.WEEK_DAYS == 7
     assert config.DEFAULT_TIMEZONE == "Europe/Moscow"
 
 

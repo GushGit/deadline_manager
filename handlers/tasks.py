@@ -55,15 +55,22 @@ async def _answer_task_list(
     message: Message,
     make_keyboard: Callable[[list[dict]], InlineKeyboardMarkup],
     header: str = "",
+    days: int | None = None,
+    empty_text: str = texts.LIST_EMPTY,
 ) -> None:
-    """Отвечает списком ближайших активных задач с клавиатурой."""
+    """Отвечает списком ближайших активных задач (за days суток, если задано)."""
     user = await database.get_or_create_user(config.DB_PATH, message.from_user.id)
-    active = await database.get_active_tasks(config.DB_PATH, user["id"])
+    now = _now_utc()
+    date_from = date_to = None
+    if days is not None:
+        date_from, date_to = utils.day_bounds_utc(user["timezone"], now, days)
+    active = await database.get_active_tasks(
+        config.DB_PATH, user["id"], date_from, date_to
+    )
     if not active:
-        await message.answer(texts.LIST_EMPTY)
+        await message.answer(empty_text)
         return
     page = active[: config.LIST_PAGE_SIZE]
-    now = _now_utc()
     rows = [
         (
             task["title"],
@@ -223,4 +230,29 @@ async def cmd_delete(message: Message) -> None:
     """Показывает активные дедлайны с кнопками удаления."""
     await _answer_task_list(
         message, keyboards.delete_keyboard, header=texts.DELETE_PROMPT + "\n\n"
+    )
+
+
+
+@router.message(Command("today"))
+async def cmd_today(message: Message) -> None:
+    """Показывает дедлайны на сегодня (по часам пользователя)."""
+    await _answer_task_list(
+        message,
+        keyboards.tasks_keyboard,
+        header=texts.TODAY_HEADER + "\n\n",
+        days=1,
+        empty_text=texts.TODAY_EMPTY,
+    )
+
+
+@router.message(Command("week"))
+async def cmd_week(message: Message) -> None:
+    """Показывает дедлайны на ближайшие дни, начиная с сегодняшнего."""
+    await _answer_task_list(
+        message,
+        keyboards.tasks_keyboard,
+        header=texts.WEEK_HEADER + "\n\n",
+        days=config.WEEK_DAYS,
+        empty_text=texts.WEEK_EMPTY,
     )
