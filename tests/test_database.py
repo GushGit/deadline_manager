@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import config
 import database
 
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
@@ -122,6 +123,7 @@ async def test_get_or_create_user_defaults(db):
     user = await database.get_or_create_user(db, 5)
     assert user["id"] == 5
     assert user["timezone"] == "Europe/Moscow"
+    assert user["timezone"] == config.DEFAULT_TIMEZONE
     assert user["reminder_offsets"] == "1440,60"
     assert user["morning_digest"] == 0
     assert user["created_at"].utcoffset() == timedelta(0)

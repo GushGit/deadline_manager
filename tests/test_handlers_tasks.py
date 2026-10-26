@@ -608,3 +608,31 @@ async def test_today_and_week_create_user(env, fake_message):
     await tasks.cmd_today(fake_message)
     await tasks.cmd_week(fake_message)
     assert sql(env, "SELECT id FROM users") == [(1,)]
+
+
+
+# ---------- служебная функция _answer_task_list ----------
+
+async def test_answer_task_list_uses_header_and_given_keyboard(env, fake_message):
+    await add_at(env, 1, "Лаба", at(2026, 10, 25, 10, 0))
+    await tasks._answer_task_list(
+        fake_message, keyboards.delete_keyboard, header="Заголовок\n\n"
+    )
+    assert answered(fake_message).startswith("Заголовок\n\n1. <b>Лаба</b>")
+    saved = await database.get_active_tasks(env, 1)
+    markup = fake_message.answer.await_args.kwargs["reply_markup"]
+    assert markup == keyboards.delete_keyboard(saved)
+
+
+async def test_answer_task_list_days_limit_range_and_empty_text(env, fake_message):
+    await add_at(env, 1, "через три дня", at(2026, 10, 26, 10, 0))
+    await tasks._answer_task_list(
+        fake_message, keyboards.tasks_keyboard, days=1, empty_text="пусто"
+    )
+    fake_message.answer.assert_awaited_once_with("пусто")
+
+
+async def test_answer_task_list_without_days_shows_everything(env, fake_message):
+    await add_at(env, 1, "через три дня", at(2026, 10, 26, 10, 0))
+    await tasks._answer_task_list(fake_message, keyboards.tasks_keyboard, empty_text="пусто")
+    assert "через три дня" in answered(fake_message)

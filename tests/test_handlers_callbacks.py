@@ -466,3 +466,60 @@ async def test_list_to_delete_flow(env, fake_message, fake_callback, monkeypatch
 
     left = await database.get_active_tasks(env, 1)
     assert [t["title"] for t in left] == ["оставить"]
+
+
+
+# ---------- служебные функции ----------
+
+async def test_read_task_id_returns_id_without_answering(fake_callback):
+    fake_callback.data = "del:42"
+    assert await callbacks._read_task_id(fake_callback) == 42
+    fake_callback.answer.assert_not_awaited()
+
+
+async def test_read_task_id_alerts_on_bad_data(fake_callback):
+    fake_callback.data = "del:oops"
+    assert await callbacks._read_task_id(fake_callback) is None
+    fake_callback.answer.assert_awaited_once_with(texts.BAD_BUTTON, show_alert=True)
+
+
+async def test_answer_not_found_default_and_custom_text(fake_callback, caplog):
+    with caplog.at_level(logging.WARNING):
+        await callbacks._answer_not_found(fake_callback, 7)
+        await callbacks._answer_not_found(fake_callback, 8, "своё")
+    calls = fake_callback.answer.await_args_list
+    assert [c.args[0] for c in calls] == [texts.TASK_NOT_FOUND, "своё"]
+    assert all(c.kwargs == {"show_alert": True} for c in calls)
+    logged = warnings(caplog)
+    assert any("task_id=7" in w for w in logged) and any("task_id=8" in w for w in logged)
+
+
+async def test_load_own_task_returns_task_without_answering(env, fake_callback):
+    task_id = await make_task(env, title="моя")
+    fake_callback.data = f"del:{task_id}"
+    task = await callbacks._load_own_task(fake_callback)
+    assert task["title"] == "моя"
+    fake_callback.answer.assert_not_awaited()
+
+
+async def test_load_own_task_foreign_returns_none_and_answers(env, fake_callback, caplog):
+    foreign = await make_task(env, user_id=2)
+    await database.get_or_create_user(env, 1)
+    fake_callback.data = f"del:{foreign}"
+    with caplog.at_level(logging.WARNING):
+        assert await callbacks._load_own_task(fake_callback) is None
+    assert_not_found_alert(fake_callback, caplog, 1, foreign)
+
+
+async def test_load_own_task_bad_id_returns_none(env, fake_callback):
+    fake_callback.data = "del:oops"
+    assert await callbacks._load_own_task(fake_callback) is None
+    fake_callback.answer.assert_awaited_once_with(texts.BAD_BUTTON, show_alert=True)
+
+
+async def test_snooze_accepts_any_shift(env, fake_callback):
+    task_id = await make_task(env)
+    fake_callback.data = f"snooze_h:{task_id}"
+    await callbacks._snooze(fake_callback, timedelta(minutes=90))
+    expected = NOW + timedelta(days=3, minutes=90)
+    assert (await database.get_task(env, task_id, 1))["deadline"] == expected

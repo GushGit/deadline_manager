@@ -308,3 +308,33 @@ async def test_expired_task_disappears_from_due_reminders(env, fake_bot):
     fake_bot.send_message.reset_mock()
     await scheduler.check_reminders(fake_bot)
     fake_bot.send_message.assert_not_awaited()
+
+
+
+# ---------- служебная функция _process_reminder ----------
+
+async def first_due(path):
+    return (await database.get_due_reminders(path, NOW))[0]
+
+
+async def test_process_reminder_sends_and_marks(env, fake_bot):
+    await add(env, reminders=[NOW - timedelta(minutes=1)])
+    await scheduler._process_reminder(fake_bot, await first_due(env), NOW)
+    fake_bot.send_message.assert_awaited_once()
+    assert sent_flags(env) == [1]
+
+
+async def test_process_reminder_failed_send_keeps_unsent(env, fake_bot):
+    await add(env, reminders=[NOW - timedelta(minutes=1)])
+    fake_bot.send_message.side_effect = network_error()
+    await scheduler._process_reminder(fake_bot, await first_due(env), NOW)
+    assert sent_flags(env) == [0]
+
+
+async def test_process_reminder_passed_deadline_marks_without_sending(env, fake_bot):
+    await add(env, deadline=NOW + timedelta(minutes=1), reminders=[NOW - timedelta(hours=1)])
+    reminder = await first_due(env)
+    later = NOW + timedelta(minutes=5)
+    await scheduler._process_reminder(fake_bot, reminder, later)
+    fake_bot.send_message.assert_not_awaited()
+    assert sent_flags(env) == [1]

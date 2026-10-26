@@ -353,3 +353,25 @@ def test_day_bounds_are_local_midnights_across_dst_change():
 def test_day_bounds_accepts_zoneinfo_and_returns_aware_utc():
     start, end = utils.day_bounds_utc(ZoneInfo(MSK), NOW, 1)
     assert start.utcoffset() == timedelta(0) and end.utcoffset() == timedelta(0)
+
+
+# ---------- служебные функции _zone и _resolve ----------
+
+def test_zone_accepts_name_and_zoneinfo_object():
+    zone = ZoneInfo(MSK)
+    assert utils._zone(MSK).key == MSK
+    assert utils._zone(zone) is zone
+
+
+def test_zone_rejects_unknown_name():
+    with pytest.raises(ZoneInfoNotFoundError):
+        utils._zone("No/Such_Zone")
+
+
+def test_resolve_success_returns_utc_and_no_reason():
+    assert utils._resolve("28.10 23:59", MSK, NOW) == (utc(2026, 10, 28, 20, 59), None)
+
+
+def test_resolve_failure_returns_reason_and_no_datetime():
+    assert utils._resolve("abc", MSK, NOW) == (None, texts.ERR_DT_FORMAT)
+    assert utils._resolve("22.10.2026 10:00", MSK, NOW) == (None, texts.ERR_DT_PAST)
